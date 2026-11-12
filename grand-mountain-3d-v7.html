@@ -249,7 +249,7 @@
       kickers.push({ x, z, width: 11, length: 15 });
     }
 
-    // --- GRINDABLE TERRAIN PARK RAILS & BOXES ---
+// --- GRINDABLE TERRAIN PARK RAILS & BOXES ---
     const rails = [];
     const railMetalMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.75, roughness: 0.22 });
     const boxTopMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.25, roughness: 0.35 });
@@ -260,7 +260,7 @@
       const isBox = Math.floor(z / 125) % 3 === 1;
       const length = isBox ? 22 : 28;
       const width = isBox ? 2.2 : 0.42;
-      const heightOffset = isBox ? 0.95 : 1.35;
+      const heightOffset = isBox ? 0.95 : 1.05; // Lowered from 1.35 so entry lip & jump height match yellow boxes
       const x = -Math.sin(z * 0.018) * 22 + ((z % 250 === 65) ? -9 : 9);
 
       const zStart = z - length * 0.5;
@@ -282,7 +282,7 @@
         railGroup.add(boxMesh);
       } else {
         // Round blue steel tube rail
-        const tubeGeo = new THREE.CylinderGeometry(0.18, 0.18, length, 12);
+        const tubeGeo = new THREE.CylinderGeometry(0.22, 0.22, length, 12);
         tubeGeo.rotateX(Math.PI / 2);
         const tubeMesh = new THREE.Mesh(tubeGeo, railMetalMat);
         tubeMesh.castShadow = true;
@@ -300,12 +300,12 @@
         railGroup.add(leg);
       }
 
-      // Entry snow lip mound so players can either ollie or ride cleanly onto the rail
+      // Entry snow lip mound matched to feature height so players can ride or ollie cleanly onto blue rails
       const entryZ = zStart - 2.2;
       const entryY = getTerrainHeight(x, entryZ);
-      const entryMound = new THREE.Mesh(new THREE.BoxGeometry(width + 1.4, 1.1, 4.5), rampSnowMat);
-      entryMound.position.set(x, entryY + 0.25, entryZ);
-      entryMound.rotation.x = SLOPE_ANGLE - 0.22;
+      const entryMound = new THREE.Mesh(new THREE.BoxGeometry(width + 1.8, heightOffset + 0.35, 4.8), rampSnowMat);
+      entryMound.position.set(x, entryY + (heightOffset * 0.5), entryZ);
+      entryMound.rotation.x = SLOPE_ANGLE - 0.24;
       entryMound.receiveShadow = true;
       scene.add(entryMound);
 
@@ -319,7 +319,7 @@
         zEnd,
         yStart,
         yEnd,
-        width: isBox ? 2.4 : 1.35, // Generous snap width for fun gameplay
+        width: isBox ? 2.4 : 2.1, // Matched snap width so blue rails catch just as reliably as boxes
         isBox
       });
     }
