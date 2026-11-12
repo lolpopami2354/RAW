@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grand Mountain Adventure 3D - Terrain Park Edition</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { overflow: hidden; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; }
+    #hud {
+      position: absolute; top: 20px; left: 20px; display: flex; gap: 14px;
+      pointer-events: none; z-index: 10;
+    }
+    .stat-box {
+      background: rgba(15, 23, 42, 0.72); color: #fff; padding: 10px 16px;
+      border-radius: 12px; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.16);
+      min-width: 112px; box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.1px; color: #94a3b8; font-weight: 600; }
+    .stat-value { font-size: 22px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    #pump-bar-container {
+      width: 100%; height: 6px; background: rgba(255,255,255,0.18); border-radius: 4px; margin-top: 6px; overflow: hidden;
+    }
+    #pump-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); transition: width 0.08s; }
+    #cam-badge {
+      position: absolute; top: 20px; right: 20px;
+      background: rgba(15, 23, 42, 0.72); color: #e2e8f0; padding: 8px 14px;
+      border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.8px;
+      backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.16); pointer-events: none; z-index: 10;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .rec-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #ef4444;
+      animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    #grind-meter {
+      position: absolute; top: 22%; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.82); color: #38bdf8; padding: 8px 18px;
+      border-radius: 999px; font-size: 18px; font-weight: 900; letter-spacing: 1px;
+      border: 1px solid rgba(56, 189, 248, 0.45); pointer-events: none; opacity: 0;
+      transition: opacity 0.15s; z-index: 14; text-transform: uppercase;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+    #trick-popup {
+      position: absolute; top: 31%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 32px; font-weight: 900; color: #facc15; text-shadow: 0 4px 16px rgba(0,0,0,0.65);
+      pointer-events: none; opacity: 0; transition: opacity 0.25s, transform 0.25s; z-index: 15;
+      text-align: center; letter-spacing: 0.5px;
+    }
+    #controls-bar {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.78); color: #e2e8f0; padding: 10px 22px;
+      border-radius: 999px; font-size: 12.5px; letter-spacing: 0.3px;
+      backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.16); pointer-events: none;
+      white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    #pause-menu {
+      position: absolute; inset: 0; background: rgba(15, 23, 42, 0.72);
+      display: none; align-items: center; justify-content: center; z-index: 20; backdrop-filter: blur(6px);
+    }
+    .menu-card {
+      background: #1e293b; color: #fff; padding: 32px; border-radius: 16px;
+      text-align: center; width: 390px; border: 1px solid rgba(255,255,255,0.16);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.45);
+    }
+    .menu-card h2 { margin-bottom: 8px; font-size: 24px; }
+    .menu-card p { color: #94a3b8; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+    .menu-btn {
+      display: block; width: 100%; padding: 12px; margin-bottom: 10px;
+      background: #3b82f6; color: white; border: none; border-radius: 8px;
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .menu-btn:hover { background: #2563eb; }
+    .menu-btn.secondary { background: #334155; }
+    .menu-btn.secondary:hover { background: #475569; }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div class="stat-box">
+      <div class="stat-label">Speed</div>
+      <div class="stat-value"><span id="speed-val">0</span> <span style="font-size:13px;font-weight:600;color:#cbd5e1;">km/h</span></div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Trick Score</div>
+      <div class="stat-value" id="score-val">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Pump Boost</div>
+      <div class="stat-value" id="pump-val">0%</div>
+      <div id="pump-bar-container"><div id="pump-bar"></div></div>
+    </div>
+  </div>
+
+  <div id="cam-badge"><span class="rec-dot"></span><span id="cam-mode-text">HELI CAM</span></div>
+  <div id="grind-meter">50-50 GRIND +0</div>
+  <div id="trick-popup">RAIL GRIND +450</div>
+
+  <div id="controls-bar">
+    <b>A / D</b> Carve &amp; Spin &bull; <b>W / S</b> Tuck / Brake (Front / Backflip in Air) &bull; <b>Space</b> Jump / Ollie Off Rail &bull; <b>C</b> Camera &bull; <b>R</b> Summit
+  </div>
+
+  <div id="pause-menu">
+    <div class="menu-card">
+      <h2>Mountain Pause</h2>
+      <p>Jump onto terrain park rails for 50-50 and sideways Boardslides, pump carves for high speed, and stomp 180s, 360s, and flips!</p>
+      <button class="menu-btn" id="resume-btn">Resume Riding</button>
+      <button class="menu-btn secondary" id="summit-btn">Teleport to Summit</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // --- SCENE, SKY & ATMOSPHERE ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x7dd3fc);
+    scene.fog = new THREE.FogExp2(0xbae6fd, 0.0022);
+
+    const camera = new THREE.PerspectiveCamera(64, window.innerWidth / window.innerHeight, 0.2, 1200);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    document.body.appendChild(renderer.domElement);
+
+    // --- PROCEDURAL SNOW TEXTURE ---
+    function createSnowTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(0, 0, 512, 512);
+
+      for (let i = 0; i < 18000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const shade = Math.random() > 0.5 ? 'rgba(255,255,255,0.65)' : 'rgba(186,214,235,0.35)';
+        ctx.fillStyle = shade;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      ctx.strokeStyle = 'rgba(203, 213, 225, 0.22)';
+      ctx.lineWidth = 3;
+      for (let x = 0; x < 512; x += 16) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 512);
+        ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(36, 260);
+      return tex;
+    }
+
+    // --- REALISTIC ALPINE LIGHTING ---
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x93c5fd, 0.72);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.15);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 260;
+    const d = 75;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+    scene.add(sunLight.target);
+
+    // --- MOUNTAIN TERRAIN ---
+    const SLOPE_ANGLE = 0.295; // Steep fast alpine slope (~16.9 deg)
+    const TERRAIN_LEN = 4600;
+    const terrainGeo = new THREE.PlaneGeometry(520, TERRAIN_LEN, 100, 440);
+    terrainGeo.rotateX(-Math.PI / 2);
+
+    function getTerrainHeight(x, z) {
+      const baseSlope = -z * Math.tan(SLOPE_ANGLE);
+      const roll = Math.sin(x * 0.032) * 1.15 + Math.cos(z * 0.02) * 0.95;
+      const valleyWalls = Math.pow(Math.max(0, Math.abs(x) - 55) * 0.075, 2);
+      return baseSlope + roll + valleyWalls;
+    }
+
+    const posAttr = terrainGeo.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+      const x = posAttr.getX(i);
+      const z = posAttr.getZ(i) + 1900;
+      posAttr.setZ(i, z);
+      posAttr.setY(i, getTerrainHeight(x, z));
+    }
+    terrainGeo.computeVertexNormals();
+
+    const terrainMat = new THREE.MeshStandardMaterial({
+      map: createSnowTexture(),
+      roughness: 0.78,
+      metalness: 0.02
+    });
+    const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+    terrain.receiveShadow = true;
+    scene.add(terrain);
+
+    // --- DISTANT MOUNTAIN PEAKS ---
+    const peakMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.85, flatShading: true });
+    for (let i = 0; i < 28; i++) {
+      const side = i % 2 === 0 ? 1 : -1;
+      const z = i * 165 - 120;
+      const x = side * (165 + Math.random() * 140);
+      const y = getTerrainHeight(0, z) - 25;
+      const radius = 65 + Math.random() * 55;
+      const height = 140 + Math.random() * 110;
+      const peak = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 6), peakMat);
+      peak.position.set(x, y + height * 0.4, z);
+      peak.rotation.y = Math.random() * Math.PI;
+      scene.add(peak);
+    }
+
+    // --- KICKER RAMPS ---
+    const kickers = [];
+    const rampSnowMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 });
+    const lipMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 });
+    for (let z = 110; z < 4000; z += 185) {
+      const x = Math.sin(z * 0.018) * 24;
+      const y = getTerrainHeight(x, z);
+
+      const kickerGroup = new THREE.Group();
+      const rampGeo = new THREE.BoxGeometry(11, 2.6, 15);
+      const ramp = new THREE.Mesh(rampGeo, rampSnowMat);
+      ramp.castShadow = true;
+      ramp.receiveShadow = true;
+      kickerGroup.add(ramp);
+
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(11.1, 0.35, 1.4), lipMat);
+      lip.position.set(0, 1.25, 6.8);
+      kickerGroup.add(lip);
+
+      kickerGroup.position.set(x, y + 0.4, z);
+      kickerGroup.rotation.x = SLOPE_ANGLE - 0.32;
+      scene.add(kickerGroup);
+
+      kickers.push({ x, z, width: 11, length: 15 });
+    }
+
+    // --- GRINDABLE TERRAIN PARK RAILS & BOXES ---
+    const rails = [];
+    const railMetalMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.75, roughness: 0.22 });
+    const boxTopMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.25, roughness: 0.35 });
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.5 });
+
+    // Place park features along the run (single rails, double kink lines, and wide butter boxes)
+    for (let z = 65; z < 4000; z += 125) {
+      const isBox = Math.floor(z / 125) % 3 === 1;
+      const length = isBox ? 22 : 28;
+      const width = isBox ? 2.2 : 0.42;
+      const heightOffset = isBox ? 0.95 : 1.35;
+      const x = -Math.sin(z * 0.018) * 22 + ((z % 250 === 65) ? -9 : 9);
+
+      const zStart = z - length * 0.5;
+      const zEnd = z + length * 0.5;
+      const yStart = getTerrainHeight(x, zStart) + heightOffset;
+      const yEnd = getTerrainHeight(x, zEnd) + heightOffset;
+      const yMid = (yStart + yEnd) * 0.5;
+      const dy = yEnd - yStart;
+      const railPitch = -Math.atan2(dy, length);
+
+      const railGroup = new THREE.Group();
+
+      if (isBox) {
+        // Wide yellow park butter box
+        const boxGeo = new THREE.BoxGeometry(width, 0.45, length);
+        const boxMesh = new THREE.Mesh(boxGeo, boxTopMat);
+        boxMesh.castShadow = true;
+        boxMesh.receiveShadow = true;
+        railGroup.add(boxMesh);
+      } else {
+        // Round blue steel tube rail
+        const tubeGeo = new THREE.CylinderGeometry(0.18, 0.18, length, 12);
+        tubeGeo.rotateX(Math.PI / 2);
+        const tubeMesh = new THREE.Mesh(tubeGeo, railMetalMat);
+        tubeMesh.castShadow = true;
+        railGroup.add(tubeMesh);
+      }
+
+      // Support legs anchored into the snow
+      const numLegs = 4;
+      for (let l = 0; l < numLegs; l++) {
+        const frac = -0.42 + (l / (numLegs - 1)) * 0.84;
+        const legZ = frac * length;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, heightOffset + 1.1, 8), postMat);
+        leg.position.set(0, -(heightOffset + 0.5), legZ);
+        leg.castShadow = true;
+        railGroup.add(leg);
+      }
+
+      // Entry snow lip mound so players can either ollie or ride cleanly onto the rail
+      const entryZ = zStart - 2.2;
+      const entryY = getTerrainHeight(x, entryZ);
+      const entryMound = new THREE.Mesh(new THREE.BoxGeometry(width + 1.4, 1.1, 4.5), rampSnowMat);
+      entryMound.position.set(x, entryY + 0.25, entryZ);
+      entryMound.rotation.x = SLOPE_ANGLE - 0.22;
+      entryMound.receiveShadow = true;
+      scene.add(entryMound);
+
+      railGroup.position.set(x, yMid, z);
+      railGroup.rotation.x = railPitch;
+      scene.add(railGroup);
+
+      rails.push({
+        x,
+        zStart,
+        zEnd,
+        yStart,
+        yEnd,
+        width: isBox ? 2.4 : 1.35, // Generous snap width for fun gameplay
+        isBox
+      });
+    }
+
+    // --- ALPINE PINE TREES & ROCKS ---
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.9 });
+    const pineMat = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.8 });
+    const snowCapMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.7 });
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9, flatShading: true });
+
+    for (let i = 0; i < 650; i++) {
+      const z = Math.random() * 4200 - 40;
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const x = side * (36 + Math.random() * 140);
+      const y = getTerrainHeight(x, z);
+      const scale = 0.85 + Math.random() * 0.75;
+
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.55, 3.2, 6), trunkMat);
+      trunk.position.y = 1.6;
+      tree.add(trunk);
+
+      for (let tier = 0; tier < 3; tier++) {
+        const r = (2.8 - tier * 0.65);
+        const h = (4.2 - tier * 0.5);
+        const yPos = 3.6 + tier * 2.2;
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), pineMat);
+        cone.position.y = yPos;
+        cone.castShadow = true;
+        tree.add(cone);
+
+        const cap = new THREE.Mesh(new THREE.ConeGeometry(r * 0.72, h * 0.45, 7), snowCapMat);
+        cap.position.y = yPos + h * 0.28;
+        tree.add(cap);
+      }
+
+      tree.scale.setScalar(scale);
+      tree.position.set(x, y - 0.3, z);
+      scene.add(tree);
+
+      if (i % 4 === 0) {
+        const rx = side * (28 + Math.random() * 80);
+        const rz = z + 15;
+        const ry = getTerrainHeight(rx, rz);
+        const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.4 + Math.random() * 1.6, 0), rockMat);
+        rock.position.set(rx, ry + 0.3, rz);
+        rock.rotation.set(Math.random(), Math.random(), Math.random());
+        rock.castShadow = true;
+        rock.receiveShadow = true;
+        scene.add(rock);
+      }
+    }
+
+    // --- ARTICULATED THIRD-PERSON RIDER ---
+    const riderRoot = new THREE.Group();
+    const riderBody = new THREE.Group();
+    riderRoot.add(riderBody);
+
+    const skiMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.25, metalness: 0.35 });
+    const skiBaseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 });
+    const skiMeshes = [];
+
+    [-0.3, 0.3].forEach(offsetX => {
+      const skiGroup = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 2.1), skiMat);
+      body.castShadow = true;
+      skiGroup.add(body);
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 2.08), skiBaseMat);
+      base.position.y = -0.02;
+      skiGroup.add(base);
+
+      const tipF = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.03, 0.28), skiMat);
+      tipF.position.set(0, 0.05, 1.14);
+      tipF.rotation.x = -0.45;
+      skiGroup.add(tipF);
+
+      const tipB = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.03, 0.26), skiMat);
+      tipB.position.set(0, 0.04, -1.12);
+      tipB.rotation.x = 0.4;
+      skiGroup.add(tipB);
+
+      skiGroup.position.set(offsetX, 0.04, 0);
+      riderBody.add(skiGroup);
+      skiMeshes.push(skiGroup);
+    });
+
+    const bootMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
+    const jacketMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.65 });
+    const accentMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6 });
+
+    const legsGroup = new THREE.Group();
+    [-0.26, 0.26].forEach(offsetX => {
+      const boot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 0.36), bootMat);
+      boot.position.set(offsetX, 0.18, 0.04);
+      boot.castShadow = true;
+      legsGroup.add(boot);
+
+      const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.48, 10), pantsMat);
+      shin.position.set(offsetX, 0.48, 0.05);
+      shin.rotation.x = 0.14;
+      shin.castShadow = true;
+      legsGroup.add(shin);
+
+      const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.48, 10), pantsMat);
+      thigh.position.set(offsetX, 0.86, -0.02);
+      thigh.rotation.x = -0.18;
+      thigh.castShadow = true;
+      legsGroup.add(thigh);
+    });
+    riderBody.add(legsGroup);
+
+    const upperBody = new THREE.Group();
+    upperBody.position.set(0, 1.05, 0);
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.78, 0.38), jacketMat);
+    torso.position.set(0, 0.38, 0.03);
+    torso.rotation.x = 0.16;
+    torso.castShadow = true;
+    upperBody.add(torso);
+
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.16, 0.4), accentMat);
+    stripe.position.set(0, 0.46, 0.04);
+    stripe.rotation.x = 0.16;
+    upperBody.add(stripe);
+
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.56, 0.22), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 }));
+    pack.position.set(0, 0.4, -0.24);
+    pack.rotation.x = 0.16;
+    upperBody.add(pack);
+
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 }));
+    helmet.position.set(0, 0.96, 0.12);
+    helmet.castShadow = true;
+    upperBody.add(helmet);
+
+    const goggles = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.13, 0.16), new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.85, roughness: 0.12 }));
+    goggles.position.set(0, 0.96, 0.3);
+    upperBody.add(goggles);
+
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.7, roughness: 0.3 });
+    [-0.44, 0.44].forEach(offsetX => {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.65, 8), jacketMat);
+      arm.position.set(offsetX, 0.42, 0.18);
+      arm.rotation.set(-0.65, 0, offsetX > 0 ? -0.18 : 0.18);
+      arm.castShadow = true;
+      upperBody.add(arm);
+
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.35, 6), poleMat);
+      pole.position.set(offsetX * 1.18, 0.05, -0.22);
+      pole.rotation.x = -0.68;
+      upperBody.add(pole);
+    });
+
+    riderBody.add(upperBody);
+    scene.add(riderRoot);
+
+    // --- SNOW SPRAY & RAIL SPARK PARTICLES ---
+    const PARTICLE_COUNT = 260;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+    const particleColors = new Float32Array(PARTICLE_COUNT * 3);
+    const particleVels = [];
+    const particleLife = new Float32Array(PARTICLE_COUNT);
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particlePositions[i * 3 + 1] = -9999;
+      particleColors[i * 3] = 1;
+      particleColors[i * 3 + 1] = 1;
+      particleColors[i * 3 + 2] = 1;
+      particleVels.push(new THREE.Vector3());
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+    const particleMat = new THREE.PointsMaterial({
+      size: 0.38,
+      transparent: true,
+      opacity: 0.85,
+      vertexColors: true
+    });
+    const particleSystem = new THREE.Points(particleGeo, particleMat);
+    scene.add(particleSystem);
+
+    let particleIdx = 0;
+    function spawnParticle(pos, vel, isSpark = false) {
+      const idx = particleIdx % PARTICLE_COUNT;
+      particlePositions[idx * 3] = pos.x + (Math.random() - 0.5) * 0.4;
+      particlePositions[idx * 3 + 1] = pos.y + 0.08;
+      particlePositions[idx * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.4;
+      particleVels[idx].copy(vel);
+      particleLife[idx] = isSpark ? (0.22 + Math.random() * 0.18) : (0.35 + Math.random() * 0.25);
+
+      if (isSpark) {
+        particleColors[idx * 3] = 1.0;
+        particleColors[idx * 3 + 1] = 0.72 + Math.random() * 0.25;
+        particleColors[idx * 3 + 2] = 0.15;
+      } else {
+        particleColors[idx * 3] = 0.96;
+        particleColors[idx * 3 + 1] = 0.98;
+        particleColors[idx * 3 + 2] = 1.0;
+      }
+      particleIdx++;
+    }
+
+    // --- CARVED SKI TRACKS ---
+    const TRACK_SEGMENTS = 320;
+    const trackGeo = new THREE.PlaneGeometry(0.18, 1.35);
+    trackGeo.rotateX(-Math.PI / 2);
+    const trackMat = new THREE.MeshBasicMaterial({ color: 0xcbd5e1, transparent: true, opacity: 0.65, depthWrite: false });
+    const leftTrackMesh = new THREE.InstancedMesh(trackGeo, trackMat, TRACK_SEGMENTS);
+    const rightTrackMesh = new THREE.InstancedMesh(trackGeo, trackMat, TRACK_SEGMENTS);
+    leftTrackMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    rightTrackMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(leftTrackMesh, rightTrackMesh);
+
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < TRACK_SEGMENTS; i++) {
+      dummy.position.set(0, -9999, 0);
+      dummy.updateMatrix();
+      leftTrackMesh.setMatrixAt(i, dummy.matrix);
+      rightTrackMesh.setMatrixAt(i, dummy.matrix);
+    }
+    let trackIdx = 0;
+    let distSinceTrack = 0;
+
+    // --- PLAYER STATE ---
+    const state = {
+      x: 0,
+      z: 0,
+      airHeight: 0,
+      vy: 0,
+      speed: 22,
+      heading: 0,
+      visualYaw: 0,
+      visualPitch: 0,
+      smoothRoll: 0,
+      smoothPitch: 0,
+      kneeBend: 0,
+      airSpinAccum: 0,
+      airFlipAccum: 0,
+      grounded: true,
+      grinding: false,
+      activeRail: null,
+      grindTime: 0,
+      grindPoints: 0,
+      grindType: '50-50 GRIND',
+      railCooldown: 0,
+      jumpGraceTimer: 0,
+      switchStance: false,
+      score: 0,
+      pumpEnergy: 0,
+      lastCarveDir: 0,
+      carveHoldTime: 0,
+      heliCam: true,
+      camTime: 0,
+      paused: false
+    };
+
+    // --- INPUT HANDLING ---
+    const keys = {};
+    window.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (e.code === 'Escape') togglePause();
+      if (e.code === 'KeyR') resetToSummit();
+      if (e.code === 'KeyC') {
+        state.heliCam = !state.heliCam;
+        document.getElementById('cam-mode-text').textContent = state.heliCam ? 'HELI CAM' : 'CHASE CAM';
+      }
+      if (e.code === 'Space' && (state.grounded || state.grinding) && state.jumpGraceTimer <= 0 && !state.paused) {
+        triggerJump(13.2, 0.24);
+        if (state.grinding) {
+          finishGrind(true);
+        }
+      }
+    });
+    window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+    function triggerJump(launchVy, graceSeconds = 0.22) {
+      state.grounded = false;
+      state.grinding = false;
+      state.activeRail = null;
+      state.vy = launchVy;
+      state.airHeight = Math.max(state.airHeight, 0.35);
+      state.jumpGraceTimer = graceSeconds;
+      state.airSpinAccum = 0;
+      state.airFlipAccum = 0;
+      state.kneeBend = 0.38;
+    }
+
+    function finishGrind(olliedOff) {
+      if (!state.grinding && state.grindPoints <= 0) return;
+      const pts = Math.round(state.grindPoints);
+      if (pts >= 25) {
+        state.score += pts;
+        const suffix = olliedOff ? ' OLLIE OUT' : '';
+        showPopup(`${state.grindType}${suffix} +${pts}`, '#38bdf8');
+      }
+      state.grinding = false;
+      state.activeRail = null;
+      state.grindTime = 0;
+      state.grindPoints = 0;
+      state.railCooldown = 0.35;
+      document.getElementById('grind-meter').style.opacity = '0';
+    }
+
+    function togglePause() {
+      state.paused = !state.paused;
+      document.getElementById('pause-menu').style.display = state.paused ? 'flex' : 'none';
+    }
+
+    function resetToSummit() {
+      state.x = 0;
+      state.z = 0;
+      state.airHeight = 0;
+      state.vy = 0;
+      state.speed = 22;
+      state.heading = 0;
+      state.visualYaw = 0;
+      state.visualPitch = 0;
+      state.smoothRoll = 0;
+      state.smoothPitch = 0;
+      state.kneeBend = 0;
+      state.airSpinAccum = 0;
+      state.airFlipAccum = 0;
+      state.grounded = true;
+      state.grinding = false;
+      state.activeRail = null;
+      state.grindPoints = 0;
+      state.jumpGraceTimer = 0;
+      state.switchStance = false;
+      state.pumpEnergy = 0;
+      document.getElementById('grind-meter').style.opacity = '0';
+      if (state.paused) togglePause();
+    }
+
+    document.getElementById('resume-btn').addEventListener('click', togglePause);
+    document.getElementById('summit-btn').addEventListener('click', resetToSummit);
+
+    // --- POPUP BANNER ---
+    let popupTimeout;
+    function showPopup(text, color = '#facc15') {
+      const el = document.getElementById('trick-popup');
+      el.textContent = text;
+      el.style.color = color;
+      el.style.opacity = '1';
+      el.style.transform = 'translate(-50%, -62%) scale(1.06)';
+      clearTimeout(popupTimeout);
+      popupTimeout = setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translate(-50%, -50%) scale(1)';
+      }, 1450);
+    }
+
+    // --- MAIN ANIMATION LOOP ---
+    const clock = new THREE.Clock();
+    const camPos = new THREE.Vector3(0, 14, -16);
+    const camLook = new THREE.Vector3(0, 1.5, 8);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      if (state.paused) return;
+
+      state.camTime += dt;
+      if (state.jumpGraceTimer > 0) state.jumpGraceTimer -= dt;
+      if (state.railCooldown > 0) state.railCooldown -= dt;
+
+      const steerInput = (keys['KeyA'] || keys['ArrowLeft'] ? 1 : 0) - (keys['KeyD'] || keys['ArrowRight'] ? 1 : 0);
+      const pitchInput = (keys['KeyW'] || keys['ArrowUp'] ? 1 : 0) - (keys['KeyS'] || keys['ArrowDown'] ? 1 : 0);
+      const tucking = pitchInput > 0;
+      const braking = pitchInput < 0;
+
+      let targetRoll = 0;
+      let targetPitch = 0;
+      let targetKneeBend = 0;
+
+      if (state.grinding && state.activeRail) {
+        // --- RAIL GRINDING PHYSICS ---
+        const r = state.activeRail;
+        state.x += (r.x - state.x) * Math.min(1, 20 * dt);
+        state.heading *= (1 - 10 * dt);
+        state.speed = Math.max(state.speed, 26); // Fast smooth rail slide
+
+        // Allow subtle style rotation on the rail (50-50 vs Boardslide)
+        if (steerInput !== 0) {
+          state.visualYaw += steerInput * 2.2 * dt;
+        }
+        const relAngle = Math.abs((((state.visualYaw - state.heading) % Math.PI) + Math.PI) % Math.PI);
+        const isSideways = relAngle > 0.65 && relAngle < 2.5;
+        state.grindType = r.isBox ? (isSideways ? 'BOX BOARDSLIDE' : '50-50 BOX PRESS') : (isSideways ? 'BOARDSLIDE' : '50-50 GRIND');
+
+        state.grindTime += dt;
+        const speedMult = state.speed / 24;
+        const styleMult = isSideways ? 1.45 : 1.0;
+        state.grindPoints += 240 * speedMult * styleMult * dt;
+
+        // Update live grind meter
+        const meterEl = document.getElementById('grind-meter');
+        meterEl.style.opacity = '1';
+        meterEl.textContent = `${state.grindType} +${Math.round(state.grindPoints)}`;
+
+        targetKneeBend = 0.26;
+        targetRoll = -steerInput * 0.14;
+      } else if (state.grounded) {
+        // --- GROUNDED CARVING & PUMPING ---
+        if (steerInput !== 0) {
+          const turnRate = 1.65 - (state.speed / 72) * 0.45;
+          state.heading += steerInput * turnRate * dt;
+          state.heading = Math.max(-1.12, Math.min(1.12, state.heading));
+
+          if (state.lastCarveDir !== 0 && state.lastCarveDir !== steerInput && state.carveHoldTime > 0.1) {
+            state.pumpEnergy = Math.min(100, state.pumpEnergy + 38);
+            state.speed = Math.min(68, state.speed + 4.2 + (state.pumpEnergy / 100) * 3.0);
+            state.kneeBend = 0.32;
+          }
+          state.lastCarveDir = steerInput;
+          state.carveHoldTime += dt;
+          targetRoll = -steerInput * (0.28 + (state.speed / 68) * 0.24);
+        } else {
+          state.carveHoldTime = 0;
+        }
+
+        state.pumpEnergy = Math.max(0, state.pumpEnergy - 15 * dt);
+
+        const pumpMultiplier = 1 + (state.pumpEnergy / 100) * 0.48;
+        const tuckBonus = tucking ? 1.38 : 1.0;
+        const gravityAccel = 19.5 * Math.sin(SLOPE_ANGLE) * pumpMultiplier * tuckBonus;
+        state.speed += gravityAccel * dt;
+
+        if (braking) {
+          state.speed = Math.max(0, state.speed - 32 * dt);
+          state.pumpEnergy = Math.max(0, state.pumpEnergy - 55 * dt);
+          targetKneeBend = 0.24;
+          targetPitch = -0.14;
+        } else if (tucking) {
+          state.speed *= (1 - 0.045 * dt);
+          state.speed = Math.min(state.speed, 68);
+          targetKneeBend = 0.34;
+          targetPitch = 0.28;
+        } else {
+          state.speed *= (1 - 0.08 * dt);
+          state.speed = Math.min(state.speed, 62);
+        }
+
+        // Kicker launch check
+        if (state.jumpGraceTimer <= 0) {
+          for (const k of kickers) {
+            if (Math.abs(state.x - k.x) < k.width * 0.56 && Math.abs(state.z - k.z) < k.length * 0.52) {
+              triggerJump(15.5 + state.speed * 0.24, 0.3);
+              break;
+            }
+          }
+        }
+      } else {
+        // --- IN-AIR SPINS & FLIPS ---
+        if (steerInput !== 0) {
+          const spinRate = 380;
+          const deltaSpin = steerInput * spinRate * dt;
+          state.airSpinAccum += deltaSpin;
+          state.visualYaw += THREE.MathUtils.degToRad(deltaSpin);
+        }
+        if (pitchInput !== 0) {
+          const flipRate = 365;
+          const deltaFlip = pitchInput * flipRate * dt;
+          state.airFlipAccum += deltaFlip;
+          state.visualPitch += THREE.MathUtils.degToRad(deltaFlip);
+        }
+        targetKneeBend = 0.24;
+      }
+
+      // Horizontal movement
+      const vx = Math.sin(state.heading) * state.speed;
+      const vz = Math.cos(state.heading) * state.speed;
+      state.x += vx * dt;
+      state.z += vz * dt;
+
+      const groundY = getTerrainHeight(state.x, state.z);
+      let currentWorldY = groundY;
+
+      // --- RAIL SNAP & GRIND TRACKING ---
+      if (state.grinding && state.activeRail) {
+        const r = state.activeRail;
+        if (state.z > r.zEnd) {
+          // Smoothly slide off the end of the rail
+          finishGrind(false);
+          state.grounded = false;
+          state.vy = 2.5;
+        } else {
+          const t = Math.max(0, Math.min(1, (state.z - r.zStart) / (r.zEnd - r.zStart)));
+          const railY = r.yStart + (r.yEnd - r.yStart) * t;
+          state.airHeight = Math.max(0, railY - groundY);
+          state.vy = 0;
+          currentWorldY = railY;
+        }
+      } else if (state.railCooldown <= 0 && state.vy <= 4.5) {
+        // Check if rider is colliding with top of any rail
+        for (const r of rails) {
+          if (state.z >= r.zStart - 0.6 && state.z <= r.zEnd - 1.0 && Math.abs(state.x - r.x) < r.width) {
+            const t = Math.max(0, Math.min(1, (state.z - r.zStart) / (r.zEnd - r.zStart)));
+            const railY = r.yStart + (r.yEnd - r.yStart) * t;
+            const riderWorldY = groundY + state.airHeight;
+
+            if (Math.abs(riderWorldY - railY) < 1.15) {
+              state.grinding = true;
+              state.grounded = false;
+              state.activeRail = r;
+              state.grindTime = 0;
+              state.grindPoints = 50;
+              state.airHeight = Math.max(0, railY - groundY);
+              state.vy = 0;
+              // Reset any mid-air flip pitch cleanly onto the rail
+              state.visualPitch = 0;
+              state.airFlipAccum = 0;
+              state.airSpinAccum = 0;
+              currentWorldY = railY;
+              break;
+            }
+          }
+        }
+      }
+
+      // --- VERTICAL AIR / GROUND INTEGRATION ---
+      if (!state.grinding) {
+        if (!state.grounded) {
+          state.vy -= 26 * dt;
+          state.airHeight += state.vy * dt;
+
+          if (state.airHeight <= 0 && state.jumpGraceTimer <= 0) {
+            const totalSpin = Math.abs(state.airSpinAccum);
+            const nearest180 = Math.round(totalSpin / 180) * 180;
+            const spinError = Math.abs(totalSpin - nearest180);
+
+            const totalFlip = Math.abs(state.airFlipAccum);
+            const nearest360Flip = Math.round(totalFlip / 360) * 360;
+            const flipError = Math.abs(totalFlip - nearest360Flip);
+
+            const cleanSpin = spinError <= 55;
+            const cleanFlip = flipError <= 55;
+
+            if (cleanSpin && cleanFlip && (nearest180 >= 180 || nearest360Flip >= 360)) {
+              const trickNames = [];
+              let points = 0;
+
+              if (nearest360Flip >= 360) {
+                const flipCount = nearest360Flip / 360;
+                const dirLabel = state.airFlipAccum > 0 ? 'FRONTFLIP' : 'BACKFLIP';
+                trickNames.push(flipCount === 1 ? dirLabel : `${flipCount}X ${dirLabel}`);
+                points += flipCount * 350;
+              }
+
+              if (nearest180 >= 180) {
+                if ((nearest180 / 180) % 2 === 1) {
+                  state.switchStance = !state.switchStance;
+                }
+                const stanceLabel = state.switchStance ? ' SWITCH' : '';
+                trickNames.push(`${nearest180}${stanceLabel}`);
+                points += (nearest180 / 180) * 180;
+              }
+
+              state.score += points;
+              state.speed = Math.min(68, state.speed + 3.0);
+              showPopup(`${trickNames.join(' + ')} +${points}`, '#4ade80');
+            } else if ((!cleanSpin && totalSpin > 55) || (!cleanFlip && totalFlip > 55)) {
+              showPopup('WIPEOUT! LEVEL OUT BEFORE LANDING', '#f87171');
+              state.speed *= 0.32;
+              state.switchStance = false;
+              state.pumpEnergy = 0;
+            }
+
+            state.airHeight = 0;
+            state.vy = 0;
+            state.grounded = true;
+            state.airSpinAccum = 0;
+            state.airFlipAccum = 0;
+            state.visualPitch = 0;
+            state.kneeBend = 0.45;
+          }
+        } else {
+          state.airHeight = 0;
+          state.vy = 0;
+        }
+        currentWorldY = groundY + state.airHeight;
+      }
+
+      // --- SMOOTH RIDER POSE & ARTICULATION ---
+      const smoothFactor = 1 - Math.exp(-15 * dt);
+      state.smoothRoll += (targetRoll - state.smoothRoll) * smoothFactor;
+      state.smoothPitch += (targetPitch - state.smoothPitch) * smoothFactor;
+      state.kneeBend += (targetKneeBend - state.kneeBend) * smoothFactor;
+
+      if (state.grounded) {
+        const targetYaw = state.heading + (state.switchStance ? Math.PI : 0);
+        const diff = ((targetYaw - state.visualYaw + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        state.visualYaw += diff * (1 - Math.exp(-16 * dt));
+      }
+
+      riderRoot.position.set(state.x, currentWorldY, state.z);
+      riderRoot.rotation.set(SLOPE_ANGLE, state.visualYaw, 0, 'YXZ');
+
+      riderBody.rotation.z = state.smoothRoll;
+      riderBody.rotation.x = state.grounded ? state.smoothPitch : state.visualPitch;
+
+      legsGroup.scale.y = 1 - state.kneeBend * 0.42;
+      upperBody.position.y = 1.05 - state.kneeBend * 0.36;
+      upperBody.rotation.x = state.kneeBend * 0.55;
+
+      skiMeshes.forEach(ski => {
+        ski.rotation.z = state.smoothRoll * 0.65;
+      });
+
+      sunLight.position.set(state.x + 55, currentWorldY + 110, state.z + 35);
+      sunLight.target.position.set(state.x, currentWorldY, state.z + 15);
+
+      // --- TRACKS & PARTICLES (SNOW SPRAY OR RAIL SPARKS) ---
+      if (state.grinding) {
+        if (Math.random() < 0.85) {
+          for (let s = 0; s < 2; s++) {
+            spawnParticle(
+              new THREE.Vector3(state.x, currentWorldY, state.z),
+              new THREE.Vector3((Math.random() - 0.5) * 6, 1.5 + Math.random() * 3.5, -state.speed * 0.15 + (Math.random() - 0.5) * 3),
+              true
+            );
+          }
+        }
+      } else if (state.grounded && state.speed > 4) {
+        distSinceTrack += state.speed * dt;
+        if (distSinceTrack > 0.75) {
+          distSinceTrack = 0;
+          const cosH = Math.cos(state.heading);
+          const sinH = Math.sin(state.heading);
+          const idx = trackIdx % TRACK_SEGMENTS;
+
+          [-0.28, 0.28].forEach((offset, sIdx) => {
+            const tx = state.x + cosH * offset;
+            const tz = state.z - sinH * offset;
+            const ty = getTerrainHeight(tx, tz) + 0.03;
+            dummy.position.set(tx, ty, tz);
+            dummy.rotation.set(SLOPE_ANGLE, state.heading, 0, 'YXZ');
+            dummy.updateMatrix();
+            if (sIdx === 0) leftTrackMesh.setMatrixAt(idx, dummy.matrix);
+            else rightTrackMesh.setMatrixAt(idx, dummy.matrix);
+          });
+          leftTrackMesh.instanceMatrix.needsUpdate = true;
+          rightTrackMesh.instanceMatrix.needsUpdate = true;
+          trackIdx++;
+        }
+
+        if (Math.abs(steerInput) > 0 || braking) {
+          const sprayCount = braking ? 3 : 2;
+          for (let s = 0; s < sprayCount; s++) {
+            const sideDir = braking ? (Math.random() - 0.5) * 2 : -steerInput;
+            spawnParticle(
+              new THREE.Vector3(state.x + sideDir * 0.45, groundY, state.z),
+              new THREE.Vector3(sideDir * (2.5 + Math.random() * 3.5), 1.2 + Math.random() * 2.2, (Math.random() - 0.5) * 2),
+              false
+            );
+          }
+        }
+      }
+
+      const posArr = particleGeo.attributes.position.array;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        if (particleLife[i] > 0) {
+          particleLife[i] -= dt;
+          particleVels[i].y -= 11 * dt;
+          posArr[i * 3] += particleVels[i].x * dt;
+          posArr[i * 3 + 1] += particleVels[i].y * dt;
+          posArr[i * 3 + 2] += particleVels[i].z * dt;
+          if (particleLife[i] <= 0) posArr[i * 3 + 1] = -9999;
+        }
+      }
+      particleGeo.attributes.position.needsUpdate = true;
+
+      // --- HELICOPTER CAM / CHASE CAM ---
+      const speedRatio = Math.min(1, state.speed / 65);
+      const targetFov = (state.heliCam ? 58 : 62) + speedRatio * 14;
+      camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-5 * dt));
+      camera.updateProjectionMatrix();
+
+      let desiredCamPos, desiredLookAt;
+      if (state.heliCam) {
+        const heliSwayX = Math.sin(state.camTime * 0.65) * 5.5;
+        const heliBobY = Math.cos(state.camTime * 0.9) * 1.1;
+        desiredCamPos = new THREE.Vector3(
+          state.x * 0.72 + heliSwayX,
+          currentWorldY + 14.5 + speedRatio * 3.5 + heliBobY,
+          state.z - (16.5 + speedRatio * 3.5)
+        );
+        desiredLookAt = new THREE.Vector3(
+          state.x + Math.sin(state.heading) * 6,
+          currentWorldY + 0.5,
+          state.z + 11
+        );
+      } else {
+        const camDist = 8.4 + speedRatio * 1.8;
+        desiredCamPos = new THREE.Vector3(
+          state.x - Math.sin(state.heading) * camDist,
+          currentWorldY + 4.3,
+          state.z - Math.cos(state.heading) * camDist
+        );
+        desiredLookAt = new THREE.Vector3(
+          state.x + Math.sin(state.heading) * 4.5,
+          currentWorldY + 1.4,
+          state.z + Math.cos(state.heading) * 4.5
+        );
+      }
+
+      const camSmooth = 1 - Math.exp(-(state.heliCam ? 7.5 : 12) * dt);
+      camPos.lerp(desiredCamPos, camSmooth);
+      camLook.lerp(desiredLookAt, 1 - Math.exp(-14 * dt));
+      camera.position.copy(camPos);
+      camera.lookAt(camLook);
+
+      // --- UPDATE HUD ---
+      const speedKmh = Math.round(state.speed * 3.6);
+      document.getElementById('speed-val').textContent = speedKmh;
+      document.getElementById('score-val').textContent = state.score;
+      document.getElementById('pump-val').textContent = Math.round(state.pumpEnergy) + '%';
+      document.getElementById('pump-bar').style.width = state.pumpEnergy + '%';
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
